@@ -133,7 +133,6 @@ def main():
                          and x['filled'] == 0
                          and x['torsatch'] == 0
                          and x['id'] not in blacklist]
-    found = []
     for book in req_books_reduced:
         mediatype = book['cat_name'].split(' ')[0].rstrip('s')  # will be ebook or audiobook
         hits = []
@@ -141,7 +140,6 @@ def main():
                                  series_name_position=list(json.loads(book['series']).values())[0] if book[
                                      'series'] else None)
         if hits:
-            found.append(book)
             print(book['title'])
             print(' ' * 2 + book['url'])
             if len(hits) > 5:
