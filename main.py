@@ -53,9 +53,9 @@ def search_overdrive(title, authors, mediatype, series_name_position=None):
                     (([f'{series_name_position[0]} {str(pos).lstrip("0")}' for pos in
                        parse_series_position(series_name_position[1])]) if series_name_position else [])
                     for author in authors[:2]})[:20]  # search by title + series and author, max of 20 queries
+    media_items = []
     for subdomain in overdrive_subdomains:
         od_api_url = f'https://{subdomain}.overdrive.com/rest/media'
-        media_items = []
         for query in queries:
             params = {
                 'query': query,
