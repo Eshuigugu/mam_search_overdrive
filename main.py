@@ -93,7 +93,7 @@ def get_mam_requests(limit=5000):
         # fill in mam_id for first run
         # headers['cookie'] = 'mam_id='
 
-        params = {
+        query_params = {
             'tor[text]': '',
             'tor[srchIn][title]': 'true',
             'tor[viewType]': 'unful',
@@ -102,10 +102,12 @@ def get_mam_requests(limit=5000):
             'tor[startNumber]': f'{start_idx}',
             'tor[sortType]': 'dateD'
         }
-        data = MultipartEncoder(fields=params)
-        sess.headers['Content-type'] = data.content_type
-        # headers['Content-type'] = data.content_type
-        r = sess.post(url, data=data)
+        headers['Content-type'] = 'application/json; charset=utf-8'
+
+        r = sess.post(url, json=json.dumps(query_params), headers=headers)
+        if r.status_code >= 300:
+            raise Exception(f'error fetching requests. status code {r.status_code} {r.text}')
+
         req_books += r.json()['data']
         total_items = r.json()['found']
         start_idx += 100
