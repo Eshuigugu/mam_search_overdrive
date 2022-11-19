@@ -103,7 +103,7 @@ def get_mam_requests(limit=5000):
         }
         headers['Content-type'] = 'application/json; charset=utf-8'
 
-        r = sess.post(url, json=json.dumps(query_params), headers=headers)
+        r = sess.get(url, params=query_params, headers=headers, timeout=60)
         if r.status_code >= 300:
             raise Exception(f'error fetching requests. status code {r.status_code} {r.text}')
 
