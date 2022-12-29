@@ -137,6 +137,8 @@ def main():
                          and x['torsatch'] == 0
                          and x['id'] not in blacklist]
     for book in req_books_reduced:
+        if not book['authors']:
+            continue
         mediatype = book['cat_name'].split(' ')[0].rstrip('s')  # will be ebook or audiobook
         hits = []
         hits += search_overdrive(book['title'], book['authors'], mediatype,
