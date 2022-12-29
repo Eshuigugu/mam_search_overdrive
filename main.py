@@ -123,7 +123,8 @@ def get_mam_requests(limit=5000):
             book['url'] = 'https://www.myanonamouse.net/tor/viewRequest.php/' + \
                           str(book['id'])[:-5] + '.' + str(book['id'])[-5:]
             book['title'] = BeautifulSoup(book["title"], features="lxml").text
-            book['authors'] = [author for k, author in json.loads(book['authors']).items()]
+            if book['authors']:
+                book['authors'] = [author for k, author in json.loads(book['authors']).items()]
     return req_books
 
 
