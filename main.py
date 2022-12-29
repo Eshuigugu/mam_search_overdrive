@@ -154,7 +154,7 @@ def main():
                 print(' ' * 2 + f'showing first 5 results')
                 hits = hits[:5]
             for hit in hits:
-                print(' ' * 2 + f'{hit["title"]}: {hit["subtitle"]}')
+                print(' ' * 2 + hit["title"])
                 print(' ' * 4 + hit['url'])
             print()
 
