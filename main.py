@@ -10,6 +10,7 @@ from appdirs import user_data_dir
 appname = "search_overdrive"
 appauthor = "Eshuigugu"
 data_dir = user_data_dir(appname, appauthor)
+mam_lang_code_to_overdrive = {'ENG': 'en', 'SPA': 'es'}
 
 overdrive_subdomains = ['lapl', 'hcpl', 'nypl']
 
@@ -59,8 +60,11 @@ def search_overdrive(title, authors, mediatype, series_name_position=None):
             params = {
                 'query': query,
                 'mediaTypes': mediatype,
+                'includeFacets': 'false',
                 # 'showOnlyAvailable': 'true'  # can limit to only available titles
             }
+            if language in mam_lang_code_to_overdrive:
+                params['language'] = mam_lang_code_to_overdrive[language]
             try:
                 r = sess.get(od_api_url, params=params, timeout=10)
             except requests.ConnectionError as e:
@@ -150,7 +154,7 @@ def main():
                 print(' ' * 2 + f'showing first 5 results')
                 hits = hits[:5]
             for hit in hits:
-                print(' ' * 2 + hit['title'])
+                print(' ' * 2 + f'{hit["title"]}: {hit["subtitle"]}')
                 print(' ' * 4 + hit['url'])
             print()
 
