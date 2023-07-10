@@ -194,13 +194,9 @@ def search_for_mam_book(mam_book):
 
 
 def main():
-    global blacklist
-    blacklist = set()
     req_books = get_mam_requests()
     for book in filter(should_search_for_book, req_books):
         hits = search_for_mam_book(book)
-        with open('overdrive2.json', 'a') as f:
-            f.write(json.dumps([book, hits]) + '\n')
         if hits:
             pretty_print_hits(book, hits)
 
