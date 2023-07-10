@@ -1,38 +1,35 @@
 import time
 import requests
 import json
-from bs4 import BeautifulSoup
 import os
 import pickle
 from appdirs import user_data_dir
+import html
+
+overdrive_subdomains = ['auckland', 'lapl', 'sails']
+mam_lang_code_to_overdrive = {'ENG': 'en', 'SPA': 'es'}
 
 # this script does create some files under this directory
 appname = "search_overdrive"
 appauthor = "Eshuigugu"
 data_dir = user_data_dir(appname, appauthor)
-mam_lang_code_to_overdrive = {'ENG': 'en', 'SPA': 'es'}
 
-overdrive_subdomains = ['lapl', 'hcpl', 'nypl']
+cookies_filepath = os.path.join(data_dir, 'cookies.pkl')
+mam_blacklist_filepath = os.path.join(data_dir, 'blacklisted_ids.txt')
 
 if not os.path.isdir(data_dir):
     os.makedirs(data_dir)
-sess_filepath = os.path.join(data_dir, 'session.pkl')
 
-mam_blacklist_filepath = os.path.join(data_dir, 'blacklisted_ids.txt')
 if os.path.exists(mam_blacklist_filepath):
     with open(mam_blacklist_filepath, 'r') as f:
         blacklist = set([int(x.strip()) for x in f.readlines()])
 else:
     blacklist = set()
 
-if os.path.exists(sess_filepath):
-    sess = pickle.load(open(sess_filepath, 'rb'))
-    # only take the cookies
-    cookies = sess.cookies
-    sess = requests.Session()
+sess = requests.Session()
+if os.path.exists(cookies_filepath):
+    cookies = pickle.load(open(cookies_filepath, 'rb'))
     sess.cookies = cookies
-else:
-    sess = requests.Session()
 
 
 def parse_series_position(series_positions):
@@ -47,7 +44,37 @@ def parse_series_position(series_positions):
     return series_positions
 
 
-def search_overdrive(title, authors, mediatype, series_name_position=None):
+def search_overdrive(title, authors, mediatype, series_name_position=None, language=None):
+    # use Overdrive's autocomplete to check if the books are on their platform
+    book_on_overdrive = False
+    ac_queries = [title] + ([series_name_position[0]] if series_name_position else [])
+    for query in ac_queries:
+        if book_on_overdrive:
+            continue
+        params = {
+            'query': query,
+            'maxSize': '15',
+            'categorySize': '15',
+            'sortBy': 'score',
+            'mediaType': [
+                mediatype
+            ],
+            # API key has been in use since 2017
+            # according to https://web.archive.org/web/*/https://autocomplete.api.overdrive.com/v1/autocomplete*
+            'api-key': '66d3b2fb030e46bba783b1a658705fe3',
+        }
+        time.sleep(1)
+        r = sess.get('https://autocomplete.api.overdrive.com/v1/autocomplete', params=params)
+        if r.status_code == 200:
+            try:
+                r_json = r.json()
+                if r_json["items"]:
+                    book_on_overdrive = True
+            except Exception as e:
+                print('error with autocomplete', e)
+    if not book_on_overdrive:
+        return
+
     queries = list({f'{query} {author}'
                     for query in [title] +
                     (([f'{series_name_position[0]} {str(pos).lstrip("0")}' for pos in
@@ -73,7 +100,12 @@ def search_overdrive(title, authors, mediatype, series_name_position=None):
                 continue
 
             time.sleep(1)
-            r_json = r.json()
+            try:
+                r_json = r.json()
+            except json.decoder.JSONDecodeError:
+                print('error loading reponse JSON', r.text)
+                continue
+
             if r.status_code == 200 and r_json['items']:
                 for media_item in r_json['items']:
                     media_item['url'] = f'https://{subdomain}.overdrive.com/media/{media_item["id"]}'
@@ -84,6 +116,7 @@ def search_overdrive(title, authors, mediatype, series_name_position=None):
 
 
 def get_mam_requests(limit=5000):
+    url = 'https://www.myanonamouse.net/tor/json/loadRequests.php'
     keepGoing = True
     start_idx = 0
     req_books = []
@@ -91,7 +124,6 @@ def get_mam_requests(limit=5000):
     # fetch list of requests to search for
     while keepGoing:
         time.sleep(1)
-        url = 'https://www.myanonamouse.net/tor/json/loadRequests.php'
         headers = {}
         # fill in mam_id for first run
         # headers['cookie'] = 'mam_id='
@@ -117,47 +149,62 @@ def get_mam_requests(limit=5000):
         keepGoing = min(total_items, limit) > start_idx and not \
             {x['id'] for x in req_books}.intersection(blacklist)
 
-    # saving the session lets you reuse the cookies returned by MAM which means you won't have to manually update the mam_id value as often
-    with open(sess_filepath, 'wb') as f:
-        pickle.dump(sess, f)
+    # save cookies for later. yum
+    with open(cookies_filepath, 'wb') as f:
+        pickle.dump(sess.cookies, f)
 
     with open(mam_blacklist_filepath, 'a') as f:
         for book in req_books:
             f.write(str(book['id']) + '\n')
             book['url'] = 'https://www.myanonamouse.net/tor/viewRequest.php/' + \
                           str(book['id'])[:-5] + '.' + str(book['id'])[-5:]
-            book['title'] = BeautifulSoup(book["title"], features="lxml").text
+            book['title'] = html.unescape(str(book['title']))
             if book['authors']:
                 book['authors'] = [author for k, author in json.loads(book['authors']).items()]
     return req_books
 
 
-def main():
-    req_books = get_mam_requests()
+def pretty_print_hits(mam_book, hits):
+    print(mam_book['title'])
+    print(' ' * 2 + mam_book['url'])
+    if len(hits) > 5:
+        print(' ' * 2 + f'got {len(hits)} hits')
+        print(' ' * 2 + f'showing first 5 results')
+        hits = hits[:5]
+    for hit in hits:
+        print(' ' * 2 + hit["title"])
+        print(' ' * 4 + hit['url'])
+    print()
 
-    req_books_reduced = [x for x in req_books if
-                         (x['cat_name'].startswith('Ebooks ') or x['cat_name'].startswith('Audiobooks '))
-                         and x['filled'] == 0
-                         and x['torsatch'] == 0
-                         and x['id'] not in blacklist]
-    for book in req_books_reduced:
-        mediatype = book['cat_name'].split(' ')[0].rstrip('s')  # will be ebook or audiobook
-        hits = []
-        hits += search_overdrive(book['title'], book['authors'], mediatype,
-                                 series_name_position=list(json.loads(book['series']).values())[0] if book[
-                                     'series'] else None)
+
+def should_search_for_book(mam_book):
+    return (mam_book['cat_name'].startswith('Ebooks ') or mam_book['cat_name'].startswith('Audiobooks ')) \
+           and mam_book['filled'] == 0 \
+           and mam_book['torsatch'] == 0 \
+           and mam_book['id'] not in blacklist
+
+
+def search_for_mam_book(mam_book):
+    mediatype = mam_book['cat_name'].split(' ')[0].rstrip('s').lower()  # will be ebook or audiobook
+    series_name_position = list(map(html.unescape, list(json.loads(mam_book['series']).values())[0])) if mam_book['series'] else None
+    return search_overdrive(mam_book['title'], mam_book['authors'], mediatype,
+                            series_name_position=series_name_position,
+                            language=mam_book["lang_code"]
+                            )
+
+
+def main():
+    global blacklist
+    blacklist = set()
+    req_books = get_mam_requests()
+    for book in filter(should_search_for_book, req_books):
+        hits = search_for_mam_book(book)
+        with open('overdrive2.json', 'a') as f:
+            f.write(json.dumps([book, hits]) + '\n')
         if hits:
-            print(book['title'])
-            print(' ' * 2 + book['url'])
-            if len(hits) > 5:
-                print(' ' * 2 + f'got {len(hits)} hits')
-                print(' ' * 2 + f'showing first 5 results')
-                hits = hits[:5]
-            for hit in hits:
-                print(' ' * 2 + hit["title"])
-                print(' ' * 4 + hit['url'])
-            print()
+            pretty_print_hits(book, hits)
 
 
 if __name__ == '__main__':
     main()
+
