@@ -89,7 +89,7 @@ def search_overdrive(title, authors, mediatype, series_name=None, series_positio
                 'query': query,
                 'mediaTypes': mediatype,
                 'includeFacets': 'false',
-                # 'showOnlyAvailable': 'true'  # can limit to only available titles
+                'showOnlyAvailable': only_available  # can limit to only available titles
             }
             if language in mam_lang_code_to_overdrive:
                 params['language'] = mam_lang_code_to_overdrive[language]
@@ -166,8 +166,10 @@ def get_mam_requests(limit: int = 10_000) -> list:
             'tor[startDate]': '',
             'tor[endDate]': '',
             'tor[startNumber]': f'{start_idx}',
-            'tor[sortType]': 'dateD'
+            'tor[sortType]': 'dateD',
         }
+        if language_ints:
+            query_params['tor[browse_lang][]'] = language_ints
         r = sess.get(url, params=query_params, headers={'Content-type': 'application/json; charset=utf-8'}, timeout=60)
         if r.status_code >= 300:
             print(f'error fetching requests. status code {r.status_code} {r.text}')
@@ -283,8 +285,12 @@ def main():
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Append data to a CSV file.")
+    parser = argparse.ArgumentParser(description="Search for books")
     parser.add_argument("--output_file", help="Where to output a CSV file (optional)")
+    parser.add_argument("--available", help="Show only books that can be borrowed now", action="store_true")
+    parser.add_argument("--languages",
+                        help="List of integers for the languages of books you wish to search for, "
+                             "comma seperated (optional)")
     parser.add_argument("-s", "--subdomains",
                         help="List of the Overdrive subdomains to search, comma separated. "
                              "For example, --subdomains=lapl,auckland will search "
@@ -297,5 +303,7 @@ if __name__ == '__main__':
     resume_id = args.after
     output_file = args.output_file
     overdrive_subdomains = args.subdomains.split(',')
+    only_available = args.available
+    language_ints = args.languages.split(',')
 
     main()
