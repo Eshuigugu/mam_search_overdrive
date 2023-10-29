@@ -285,7 +285,7 @@ def main():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Append data to a CSV file.")
     parser.add_argument("--output_file", help="Where to output a CSV file (optional)")
-    parser.add_argument("-s", "--subdomains",
+    parser.add_argument("-s", "--subdomains", required=True,
                         help="List of the Overdrive subdomains to search, comma separated. "
                              "For example, --subdomains=lapl,auckland will search "
                              "https://lapl.overdrive.com/ and https://auckland.overdrive.com/")
