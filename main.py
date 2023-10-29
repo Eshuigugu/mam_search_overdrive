@@ -150,7 +150,7 @@ def search_mam(title, author, lang_code=None, audiobook=False, ebook=False):
     return False
 
 
-def get_mam_requests(limit: int = 10_000) -> list[dict]:
+def get_mam_requests(limit: int = 10_000) -> list:
     keep_going = True
     start_idx = 0
     req_books = []
@@ -233,7 +233,7 @@ def search_overdrive_for_mam_book(mam_book):
                             )
 
 
-def write_to_csv(csv_filepath: str, book: dict, hits: list[dict]):
+def write_to_csv(csv_filepath: str, book: dict, hits: list):
     query_str = f'{book["title"]} {book["authors"][0]}'
     goodreads_book = {}
     try:
@@ -285,10 +285,10 @@ def main():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Append data to a CSV file.")
     parser.add_argument("--output_file", help="Where to output a CSV file (optional)")
-    parser.add_argument("-s", "--subdomains", required=True,
+    parser.add_argument("-s", "--subdomains",
                         help="List of the Overdrive subdomains to search, comma separated. "
                              "For example, --subdomains=lapl,auckland will search "
-                             "https://lapl.overdrive.com/ and https://auckland.overdrive.com/")
+                             "https://lapl.overdrive.com/ and https://auckland.overdrive.com/", required=True)
     parser.add_argument("--after", type=int, default=resume_id,
                         help="Filters out requests older than this request ID/timestamp in microseconds. "
                              "Set to 0 to search for all requested books (optional)")
