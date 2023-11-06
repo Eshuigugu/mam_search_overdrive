@@ -7,6 +7,7 @@ from appdirs import user_data_dir
 import html
 import csv
 import argparse
+from typing import List, Dict
 
 mam_lang_code_to_overdrive = {'ENG': 'en', 'SPA': 'es'}
 
@@ -22,8 +23,8 @@ if not os.path.isdir(data_dir):
     os.makedirs(data_dir)
 
 if os.path.exists(resume_id_filepath):
-    with open(resume_id_filepath, 'r') as f:
-        resume_id = int(f.read().strip())
+    with open(resume_id_filepath, 'r') as resume_file:
+        resume_id = int(resume_file.read().strip())
 else:
     resume_id = 0
 
@@ -150,7 +151,7 @@ def search_mam(title, author, lang_code=None, audiobook=False, ebook=False):
     return False
 
 
-def get_mam_requests(limit: int = 10_000) -> list:
+def get_mam_requests(limit: int = 10_000) -> List:
     keep_going = True
     start_idx = 0
     req_books = []
@@ -189,7 +190,7 @@ def get_mam_requests(limit: int = 10_000) -> list:
     with open(cookies_filepath, 'wb') as f:
         pickle.dump(sess.cookies, f)
 
-    req_books = {book["id"]: book for book in req_books if book["id"] > resume_id}  # make sure there's no duplicates the list of requested books
+    req_books = {book["id"]: book for book in req_books}  # make sure there's no duplicates the list of requested books
     print(f'Got list of {len(req_books)} requested books')
     with open(resume_id_filepath, 'w') as resume_file:
         # arrange list of requests old > new
@@ -203,7 +204,8 @@ def get_mam_requests(limit: int = 10_000) -> list:
             book['title'] = html.unescape(str(book['title']))
             if book['authors']:
                 book['authors'] = [author for k, author in json.loads(book['authors']).items()]
-            yield book
+            if book["id"] > resume_id:
+                yield book
 
 
 def pretty_print_hits(mam_book, hits):
@@ -235,7 +237,7 @@ def search_overdrive_for_mam_book(mam_book):
                             )
 
 
-def write_to_csv(csv_filepath: str, book: dict, hits: list):
+def write_to_csv(csv_filepath: str, book: Dict, hits: List):
     query_str = f'{book["title"]} {book["authors"][0]}'
     goodreads_book = {}
     try:
@@ -285,7 +287,7 @@ def main():
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Search for books")
+    parser = argparse.ArgumentParser(description="Search for books on Overdrive")
     parser.add_argument("--output_file", help="Where to output a CSV file (optional)")
     parser.add_argument("--available", help="Show only books that can be borrowed now", action="store_true")
     parser.add_argument("--languages",
@@ -304,6 +306,6 @@ if __name__ == '__main__':
     output_file = args.output_file
     overdrive_subdomains = args.subdomains.split(',')
     only_available = args.available
-    language_ints = args.languages.split(',')
+    language_ints = args.languages.split(',') if args.languages else None
 
     main()
