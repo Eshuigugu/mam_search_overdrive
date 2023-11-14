@@ -190,22 +190,20 @@ def get_mam_requests(limit: int = 10_000) -> List:
     with open(cookies_filepath, 'wb') as f:
         pickle.dump(sess.cookies, f)
 
-    req_books = {book["id"]: book for book in req_books}  # make sure there's no duplicates the list of requested books
+    req_books = {book["id"]: book for book in req_books if book["id"] > resume_id}  # make sure there's no duplicates the list of requested books
     print(f'Got list of {len(req_books)} requested books')
-    with open(resume_id_filepath, 'w') as resume_file:
-        # arrange list of requests old > new
-        for book_id in sorted(list(req_books)):
-            book = req_books[book_id]
-            # write the most recent request id
-            resume_file.seek(0)
+    # arrange list of requests old > new
+    for book_id in sorted(list(req_books)):
+        book = req_books[book_id]
+        # write the most recent request id
+        with open(resume_id_filepath, 'w') as resume_file:
             resume_file.write(str(book["id"]))
-            # edit book object
-            book['url'] = f'https://www.myanonamouse.net/tor/viewRequest.php/{book["id"] / 1e5:.5f}'
-            book['title'] = html.unescape(str(book['title']))
-            if book['authors']:
-                book['authors'] = [author for k, author in json.loads(book['authors']).items()]
-            if book["id"] > resume_id:
-                yield book
+        # edit book object
+        book['url'] = f'https://www.myanonamouse.net/tor/viewRequest.php/{book["id"] / 1e5:.5f}'
+        book['title'] = html.unescape(str(book['title']))
+        if book['authors']:
+            book['authors'] = [author for k, author in json.loads(book['authors']).items()]
+            yield book
 
 
 def pretty_print_hits(mam_book, hits):
